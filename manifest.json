@@ -1,0 +1,9 @@
+{
+    "name": "Node ID Extractor",
+    "id": "node-id-extractor",
+    "api": "1.0.0",
+    "main": "code.js",
+    "ui": "ui.html",
+    "editorType": ["figma"]
+  }
+  

@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600&display=swap');
+    
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    
+    body {
+      font-family: 'IBM Plex Sans', sans-serif;
+      color: #161616;
+      background-color: #f4f4f4;
+      padding: 16px;
+      font-size: 14px;
+    }
+    
+    .container {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+    }
+    
+    header {
+      margin-bottom: 24px;
+    }
+    
+    h1 {
+      font-size: 18px;
+      font-weight: 500;
+      margin-bottom: 8px;
+    }
+    
+    .subtitle {
+      font-size: 14px;
+      color: #525252;
+      line-height: 1.4;
+    }
+    
+    .empty-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      height: 240px;
+      background-color: #ffffff;
+      border: 1px solid #e0e0e0;
+      border-radius: 4px;
+      padding: 24px;
+    }
+    
+    .empty-icon {
+      width: 48px;
+      height: 48px;
+      margin-bottom: 16px;
+      color: #8d8d8d;
+    }
+    
+    .empty-text {
+      color: #525252;
+      font-size: 14px;
+      margin-bottom: 16px;
+    }
+    
+    .node-list {
+      overflow-y: auto;
+      margin-bottom: 16px;
+      flex-grow: 1;
+    }
+    
+    .node-card {
+      background-color: #ffffff;
+      border: 1px solid #e0e0e0;
+      border-radius: 4px;
+      padding: 16px;
+      margin-bottom: 8px;
+      display: flex;
+      flex-direction: column;
+    }
+    
+    .node-card:last-child {
+      margin-bottom: 0;
+    }
+    
+    .node-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 8px;
+    }
+    
+    .node-name {
+      font-weight: 500;
+      font-size: 14px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    
+    .node-type {
+      font-size: 12px;
+      color: #525252;
+      padding: 2px 8px;
+      background-color: #e0e0e0;
+      border-radius: 12px;
+    }
+    
+    .node-id {
+      font-family: monospace;
+      font-size: 12px;
+      color: #525252;
+      background-color: #f4f4f4;
+      padding: 8px;
+      border-radius: 4px;
+      border: 1px solid #e0e0e0;
+      width: 100%;
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+    }
+    
+    .action-row {
+      display: flex;
+      margin-top: 8px;
+    }
+    
+    button {
+      font-family: 'IBM Plex Sans', sans-serif;
+      font-size: 14px;
+      height: 32px;
+      padding: 0 16px;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: none;
+    }
+    
+    .copy-btn {
+      background-color: transparent;
+      color: #0f62fe;
+      border: 1px solid #0f62fe;
+      margin-right: 8px;
+      flex: 1;
+    }
+    
+    .copy-btn:hover {
+      background-color: rgba(15, 98, 254, 0.1);
+    }
+    
+    .copy-all-btn {
+      background-color: #0f62fe;
+      color: white;
+      border: 1px solid #0f62fe;
+      flex: 1;
+    }
+    
+    .copy-all-btn:hover {
+      background-color: #0353e9;
+    }
+    
+    .footer {
+      font-size: 12px;
+      color: #525252;
+      text-align: center;
+      margin-top: 16px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Node ID Extractor</h1>
+      <p class="subtitle">Extract and copy node IDs from your Figma selection</p>
+    </header>
+    
+    <div id="emptyState" class="empty-state">
+      <svg class="empty-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="currentColor">
+        <path d="M16,2A14,14,0,1,0,30,16,14,14,0,0,0,16,2Zm0,26A12,12,0,1,1,28,16,12,12,0,0,1,16,28Z"/>
+        <path d="M16,12a1.5,1.5,0,0,0-1.5,1.5v7a1.5,1.5,0,0,0,3,0v-7A1.5,1.5,0,0,0,16,12Z"/>
+        <circle cx="16" cy="9" r="1.5"/>
+      </svg>
+      <p class="empty-text">No nodes selected.<br>Select an element in Figma to see its ID.</p>
+    </div>
+    
+    <div id="selectionContent" style="display: none;">
+      <div id="nodeList" class="node-list"></div>
+      
+      <div class="action-row">
+        <button id="copyAllBtn" class="copy-all-btn">Copy All IDs</button>
+      </div>
+    </div>
+    
+    <p class="footer">IBM Carbon Design System</p>
+  </div>
+
+  <script>
+    let currentSelection = [];
+    
+    // Send init message to plugin
+    window.onload = () => {
+      parent.postMessage({ pluginMessage: { type: 'init-ui' } }, '*');
+    };
+    
+    // Listen for messages from the plugin code
+    window.onmessage = (event) => {
+      const message = event.data.pluginMessage;
+      
+      if (message.type === 'selection-update') {
+        currentSelection = message.selection;
+        updateUI(message.hasSelection);
+      }
+    };
+    
+    function updateUI(hasSelection) {
+      const emptyState = document.getElementById('emptyState');
+      const selectionContent = document.getElementById('selectionContent');
+      const nodeList = document.getElementById('nodeList');
+      
+      if (!hasSelection) {
+        emptyState.style.display = 'flex';
+        selectionContent.style.display = 'none';
+        return;
+      }
+      
+      emptyState.style.display = 'none';
+      selectionContent.style.display = 'block';
+      
+      // Clear the node list
+      nodeList.innerHTML = '';
+      
+      // Create a card for each selected node
+      currentSelection.forEach(node => {
+        const nodeCard = document.createElement('div');
+        nodeCard.className = 'node-card';
+        
+        const nodeHeader = document.createElement('div');
+        nodeHeader.className = 'node-header';
+        
+        const nodeName = document.createElement('div');
+        nodeName.className = 'node-name';
+        nodeName.textContent = node.name;
+        
+        const nodeType = document.createElement('div');
+        nodeType.className = 'node-type';
+        nodeType.textContent = node.type;
+        
+        nodeHeader.appendChild(nodeName);
+        nodeHeader.appendChild(nodeType);
+        
+        const nodeId = document.createElement('div');
+        nodeId.className = 'node-id';
+        nodeId.textContent = node.id;
+        
+        const actionRow = document.createElement('div');
+        actionRow.className = 'action-row';
+        
+        const copyBtn = document.createElement('button');
+        copyBtn.className = 'copy-btn';
+        copyBtn.textContent = 'Copy ID';
+        copyBtn.onclick = () => {
+          copyToClipboard(node.id);
+          parent.postMessage({ pluginMessage: { type: 'copy-to-clipboard' } }, '*');
+        };
+        
+        actionRow.appendChild(copyBtn);
+        
+        nodeCard.appendChild(nodeHeader);
+        nodeCard.appendChild(nodeId);
+        nodeCard.appendChild(actionRow);
+        
+        nodeList.appendChild(nodeCard);
+      });
+    }
+    
+    // Copy to clipboard functionality
+    function copyToClipboard(text) {
+      const textarea = document.createElement('textarea');
+      textarea.value = text;
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textarea);
+    }
+    
+    // Copy all IDs button
+    document.getElementById('copyAllBtn').onclick = () => {
+      const allIds = currentSelection.map(node => node.id).join('\n');
+      copyToClipboard(allIds);
+      parent.postMessage({ pluginMessage: { type: 'copy-all-to-clipboard' } }, '*');
+    };
+  </script>
+</body>
+</html>
